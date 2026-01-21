@@ -27,7 +27,7 @@ A beautiful digital coloring book web app built with Next.js 15 and TypeScript. 
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/coloring-book.git
+git clone https://github.com/aadigupta/coloring-book.git
 cd coloring-book
 
 # Install dependencies
@@ -50,7 +50,7 @@ npm start
 
 The easiest way to deploy is using [Vercel](https://vercel.com):
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/coloring-book)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/aadigupta/coloring-book)
 
 Or deploy manually:
 
