@@ -1,8 +1,8 @@
 import ColoringEditor from '@/components/ColoringEditor';
-import { notFound } from 'next/navigation';
 
 // Sample coloring pages data (same as gallery)
-const coloringPages: Record<string, { title: string; src: string }> = {
+const coloringPages: Record<string, { title: string; src: string | null }> = {
+  blank: { title: 'Blank Canvas', src: null },
   butterfly: { title: 'Butterfly', src: '/lineart/butterfly.svg' },
   flower: { title: 'Flower', src: '/lineart/flower.svg' },
   house: { title: 'Cozy House', src: '/lineart/house.svg' },
@@ -35,9 +35,8 @@ export default async function ColorPage({
   const { id } = await params;
   const page = coloringPages[id];
 
-  // For unknown IDs, show default with butterfly as fallback
-  // This allows custom uploaded images to work
-  const initialImage = page?.src || '/lineart/butterfly.svg';
+  // Handle blank canvas or known pages
+  const initialImage = page?.src || null;
   const title = page?.title || 'Custom Page';
 
   return <ColoringEditor initialImage={initialImage} title={title} />;

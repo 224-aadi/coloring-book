@@ -23,6 +23,101 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Load SVG with transparent background (removes white rect backgrounds)
+ */
+async function loadSvgWithTransparentBg(src: string): Promise<HTMLImageElement> {
+  // If it's not an SVG file path, handle differently
+  if (!src.endsWith('.svg')) {
+    return loadImage(src);
+  }
+  
+  try {
+    // Fetch the SVG content
+    const response = await fetch(src);
+    let svgText = await response.text();
+    
+    // Remove white background rects (common pattern in line art SVGs)
+    svgText = svgText.replace(/<rect[^>]*fill=["']white["'][^>]*\/>/gi, '');
+    svgText = svgText.replace(/<rect[^>]*fill=["']#fff(fff)?["'][^>]*\/>/gi, '');
+    svgText = svgText.replace(/<rect[^>]*fill=["']#ffffff["'][^>]*\/>/gi, '');
+    
+    // Create a data URL from the modified SVG
+    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    
+    const img = await loadImage(url);
+    URL.revokeObjectURL(url);
+    
+    return img;
+  } catch {
+    return loadImage(src);
+  }
+}
+
+/**
+ * Convert a canvas to PNG bytes
+ */
+function canvasToBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    // Create a new canvas with white background
+    const outputCanvas = document.createElement('canvas');
+    outputCanvas.width = canvas.width;
+    outputCanvas.height = canvas.height;
+    const ctx = outputCanvas.getContext('2d')!;
+    
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw the user's drawing
+    ctx.drawImage(canvas, 0, 0);
+    
+    outputCanvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create blob'));
+          return;
+        }
+        const arrayBuffer = await blob.arrayBuffer();
+        resolve(new Uint8Array(arrayBuffer));
+      },
+      'image/png',
+      1.0
+    );
+  });
+}
+
+/**
+ * Make white pixels transparent in an image (for converted line art)
+ */
+function makeWhiteTransparent(img: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d')!;
+  
+  ctx.drawImage(img, 0, 0);
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  // Make white/near-white pixels transparent
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // If pixel is white or near-white, make it transparent
+    if (r > 240 && g > 240 && b > 240) {
+      data[i + 3] = 0; // Set alpha to 0
+    }
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+/**
  * Merge line art and drawing canvas into a single image
  */
 async function mergeCanvases(
@@ -30,7 +125,17 @@ async function mergeCanvases(
   drawingCanvas: HTMLCanvasElement
 ): Promise<Uint8Array> {
   // Load the line art image
-  const lineArtImg = await loadImage(lineArtSrc);
+  let lineArtImg: HTMLImageElement;
+  let lineArtCanvas: HTMLCanvasElement | null = null;
+  
+  if (lineArtSrc.endsWith('.svg')) {
+    // SVG files - remove white background rects
+    lineArtImg = await loadSvgWithTransparentBg(lineArtSrc);
+  } else {
+    // Converted images (data URLs) - make white pixels transparent
+    lineArtImg = await loadImage(lineArtSrc);
+    lineArtCanvas = makeWhiteTransparent(lineArtImg);
+  }
   
   // Get native dimensions from line art
   const width = lineArtImg.naturalWidth;
@@ -49,8 +154,12 @@ async function mergeCanvases(
   // Draw the user's coloring first (scaled to match line art dimensions)
   ctx.drawImage(drawingCanvas, 0, 0, width, height);
   
-  // Draw line art on top so outlines are visible
-  ctx.drawImage(lineArtImg, 0, 0, width, height);
+  // Draw line art on top (with transparent background) so outlines are visible
+  if (lineArtCanvas) {
+    ctx.drawImage(lineArtCanvas, 0, 0, width, height);
+  } else {
+    ctx.drawImage(lineArtImg, 0, 0, width, height);
+  }
   
   // Convert to PNG blob
   return new Promise((resolve, reject) => {
@@ -73,15 +182,23 @@ async function mergeCanvases(
  * Export the coloring page as a PDF
  */
 export async function exportToPdf(
-  lineArtSrc: string,
+  lineArtSrc: string | null,
   drawingCanvas: HTMLCanvasElement,
   options: ExportOptions = {}
 ): Promise<void> {
   const { filename = 'coloring-page.pdf' } = options;
   
   try {
-    // Merge canvases into a single image
-    const imageBytes = await mergeCanvases(lineArtSrc, drawingCanvas);
+    // Get image bytes - either merged with line art or just the drawing
+    let imageBytes: Uint8Array;
+    
+    if (lineArtSrc) {
+      // Merge canvases with line art
+      imageBytes = await mergeCanvases(lineArtSrc, drawingCanvas);
+    } else {
+      // Blank canvas - just export the drawing
+      imageBytes = await canvasToBytes(drawingCanvas);
+    }
     
     // Create PDF document
     const pdfDoc = await PDFDocument.create();

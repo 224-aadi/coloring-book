@@ -1,0 +1,14 @@
+# Render Blueprint for Line Art API
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: lineart-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+    autoDeploy: true
