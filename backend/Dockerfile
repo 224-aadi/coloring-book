@@ -1,13 +1,21 @@
 # Python OpenCV Line Art Converter
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies for OpenCV
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+# Using --no-install-recommends to keep image small
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -19,7 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY main.py .
 
-# Expose port (Render uses PORT env variable)
+# Expose port
 EXPOSE 8000
 
 # Run the application - uses PORT env var if set, defaults to 8000
