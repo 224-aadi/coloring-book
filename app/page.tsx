@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import ValentineCover from '@/components/ValentineCover';
 
 // Sample coloring pages data
 const coloringPages = [
@@ -14,7 +13,6 @@ const coloringPages = [
 
 export default function Home() {
   return (
-    <ValentineCover>
     <div className="min-h-screen bg-[#FEFCFD]">
       {/* Hero Section */}
       <header className="relative">
@@ -170,6 +168,5 @@ export default function Home() {
         </div>
       </footer>
     </div>
-    </ValentineCover>
   );
 }
